@@ -14,5 +14,12 @@ public class JavassistPlugin implements Plugin<Project>{
         def  classTransform = new JavassistTransform(project)
         android.registerTransform(classTransform)
 
+        project.extensions.create("tryCatchInfo",TryCatchExtension)
+        println("============create tryCatchInfor Extension")
+        project.afterEvaluate {
+            println("============afterEvaluate tryCatchInfor Extension")
+            project.task("tryCatchTask",type:TryCatchTask)
+        }
+
     }
 }

@@ -10,17 +10,24 @@ import com.android.build.api.transform.TransformException
 import com.android.build.api.transform.TransformInput
 import com.android.build.api.transform.TransformOutputProvider
 import com.android.build.gradle.internal.pipeline.TransformManager
+import javassist.ClassPool
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.FileUtils
 import org.gradle.api.Project
+
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 public class JavassistTransform extends Transform{
 
 
     Project project
+//    TryCatchExtension mTryCatchExtension
 
     JavassistTransform(Project project) {
         this.project = project
+//        mTryCatchExtension = project.tryCatchInfo
     }
 
     @Override
@@ -49,14 +56,23 @@ public class JavassistTransform extends Transform{
                    Collection<TransformInput> referencedInputs,
                    TransformOutputProvider outputProvider, boolean isIncremental)
             throws IOException, TransformException, InterruptedException {
-        println "=============hello, body!=============="
+        println "=============hello, body!=====abc=============="
+//        project.extensions.create("tryCatchInfo",TryCatchExtension)
+        TryCatchExtension tryCatchExtension = project.tryCatchInfo
+        Map<String,Object> fixMap = new HashMap<>()
+        fixMap.put(TryCatchExtension.PATHNAME,tryCatchExtension.pathName)
+        fixMap.put(TryCatchExtension.METHOD_NAME,tryCatchExtension.methodName)
+        fixMap.put(TryCatchExtension.EXCEPTION_NAME,tryCatchExtension.exceptionName)
+        fixMap.put(TryCatchExtension.RETURNVALUE,tryCatchExtension.returnValue)
+        println( "=========try-catch====jackie======"+tryCatchExtension.toString())
+
         // Transform的inputs有两种类型，一种是目录，一种是jar包，要分开遍历
         inputs.each { TransformInput input ->
             //对类型为“文件夹”的input进行遍历
             input.directoryInputs.each { DirectoryInput directoryInput ->
                 //文件夹里面包含的是我们手写的类以及R.class、BuildConfig.class以及R$XXX.class等
 
-            MyInject.inject(directoryInput.file.absolutePath,project)
+            MyInject.inject(directoryInput.file.absolutePath,project,fixMap,false)
                 //是否是目录
 //                if (directoryInput.file.isDirectory()) {
 //                    //列出目录所有文件（包含子文件夹，子文件夹内文件）
@@ -109,8 +125,9 @@ public class JavassistTransform extends Transform{
             //对类型为jar文件的input进行遍历
             input.jarInputs.each { JarInput jarInput ->
 
+                println("==========jar包==================================="+       jarInput.file.absolutePath)
                 //jar文件一般是第三方依赖库jar文件
-
+                //MyInject.inject(jarInput.file.absolutePath,project,fixMap,true)
                 // 重命名输出文件（同目录copyFile会冲突）
                 def jarName = jarInput.name
                 def md5Name = DigestUtils.md5Hex(jarInput.file.getAbsolutePath())
@@ -120,8 +137,12 @@ public class JavassistTransform extends Transform{
                 //生成输出路径
                 def dest = outputProvider.getContentLocation(jarName + md5Name,
                         jarInput.contentTypes, jarInput.scopes, Format.JAR)
-                //将输入内容复制到输出
-                FileUtils.copyFile(jarInput.file, dest)
+                if (jarInput.file.absolutePath.contains("TestLib.jar")){
+                    MyInject.injectJar(jarInput.file,dest,fixMap)
+                } else {
+                    //将输入内容复制到输出
+                    FileUtils.copyFile(jarInput.file, dest)
+                }
             }
         }
     }
